@@ -11,46 +11,52 @@ import struct
 
 class seqFileHandler:
     def __init__(self,fileName):
-        self.f = open(file=fileName,mode='rb')
+        '''
+        This class constructor initialtes seqFileHandler class.
+
+        Input:
+            - `fileName`: string, with the path to the StreamPix Sequence file (it can operate with v.4 and v.5 file formats).
+        '''
+        self._f = open(file=fileName,mode='rb')
         direc = path.dirname(fileName)
         file = path.basename(fileName)
         filen,extn = path.splitext(file)
-        self.modFilePath = direc+'/'+filen+'_mod'+extn
-        self.filename = filen
-        self.extension = extn
-        self.directory = direc
+        self._modFilePath = direc+'/'+filen+'_mod'+extn
+        self._filename = filen
+        self._extension = extn
+        self._directory = direc
 
-        self.header = self.readSeqHeader(self.f)
-        [self.version,self.description,self.imageWidth,self.imageHeight,self.imageBitDepth,\
+        self._header = self._readSeqHeader(self._f)
+        [self._version,self._description,self.imageWidth,self.imageHeight,self.imageBitDepth,\
          self.imageSize,\
-         self.imageFormat,self.frameNum,self.trueImageSize,self.frameRate,self.compressionFormat,self.refTime,\
-         self.refTimeMS,self.refTimeUS] = self.convertHeader(self.header)
-        self.trueImageSize = self.trueImageSize[0]
-        self.compressionFormat = self.compressionFormat[0]
+         self._imageFormat,self.frameNum,self._trueImageSize,self.frameRate,self._compressionFormat,self.refTime,\
+         self.refTimeMS,self.refTimeUS] = self._convertHeader(self._header)
+        self._trueImageSize = self._trueImageSize[0]
+        self._compressionFormat = self._compressionFormat[0]
         self.frameNum = self.frameNum[0]
-        if (self.compressionFormat!=0):
+        if (self._compressionFormat!=0):
             raise ValueError('This tool can handle only uncompressed sequences!')
-        if (self.imageFormat!=100):
+        if (self._imageFormat!=100):
             raise ValueError('This tool can handle only Monochrome Image (LSB) format!')
-        self.shift = 1024
-        if type(self.version) is tuple:
-            self.version = self.version[0]
-        if (self.version == 5):
-            self.shift = 8192
-        self.header[2]=struct.pack('<I',5)
+        self._shift = 1024
+        if type(self._version) is tuple:
+            self._version = self._version[0]
+        if (self._version == 5):
+            self._shift = 8192
+        self._header[2]=struct.pack('<I',5)
 
         self.currentFrame = torch.ShortTensor(np.zeros((self.imageHeight,self.imageWidth),dtype=np.int16))
 
         self.currFrameNum = 0
 
-        self.currTime = self.refTime
-        self.currTimeMS = self.refTimeMS
-        self.currTimeUS = self.refTimeUS
+        self._currTime = self.refTime
+        self._currTimeMS = self.refTimeMS
+        self._currTimeUS = self.refTimeUS
 
     def __del__(self):
-        self.f.close()
+        self._f.close()
 
-    def readSeqHeader(self,fileHandle):
+    def _readSeqHeader(self,fileHandle):
         addr = [0,4,28,32,36,548,572,576,580,584,592,596,600,604,608,612,616,620,624,628,630,632,636,640,644,648,656,660,664]
         length = [4,24,4,4,512,24,4,4,4,8,4,4,4,4,4,4,4,4,4,2,2,4,4,4,4,8,4,4,360]
         headerData = []
@@ -58,7 +64,7 @@ class seqFileHandler:
             headerData.append(fileHandle.read(length[i]))
         return headerData
 
-    def convertHeader(self,headerData):
+    def _convertHeader(self,headerData):
         version = struct.unpack('<L',headerData[2])
         description = headerData[4].replace(b'\x00',b'')
         imageWidth,imageHeight,imageBitDepth,imageBitDepthReal,imageSize,imageFormat = struct.unpack('<LLLLLL',headerData[5])
@@ -75,21 +81,21 @@ class seqFileHandler:
     def readFrame(self,frame=None):
         if frame==None:
             self.currFrameNum +=1
-            self.f.seek(self.shift+(self.currFrameNum-1)*self.trueImageSize)
-            dat = self.f.read(self.imageSize)
+            self._f.seek(self._shift+(self.currFrameNum-1)*self._trueImageSize)
+            dat = self._f.read(self.imageSize)
             self.currentFrame = torch.ShortTensor(np.reshape(np.array(list(dat),dtype=np.int16),(self.imageHeight,self.imageWidth)))
-            self.currTime,self.currTimeMS,self.currTimeUS = struct.unpack('<LHH',self.f.read(8))
+            self._currTime,self._currTimeMS,self._currTimeUS = struct.unpack('<LHH',self._f.read(8))
         if type(frame) == int:
-            self.f.seek(self.shift+(frame-1)*self.trueImageSize)
-            dat = self.f.read(self.imageSize)
+            self._f.seek(self._shift+(frame-1)*self._trueImageSize)
+            dat = self._f.read(self.imageSize)
 
             return torch.ShortTensor(np.reshape(np.array(list(dat),dtype=np.uint8),(self.imageHeight,self.imageWidth)))
-    
+
     def readFrames(self,startFrame=None,endFrame=None):
-        
+
         '''
             Function readFrames returns stacked 3-dimensional array of greyscale images extracted from the sequence. The function will extract all consecutive frames from startFrame to endFrame (inclusive).
-            
+
             Inputs:
                 - `startFrame`: None or number type. Number of start frame (inclusive) for the sequence of frames to extract. If None, will be used frame next after current frame recorded.
                 - `endFrame`: None or number type. Number of end frame (inclusive) for the sequence of frames to extract. If None, will be used the last frame of the openned sequence.
@@ -104,7 +110,7 @@ class seqFileHandler:
                 startFrame = torch.clamp(startFrame,1,self.frameNum)
             except ValueError:
                 raise ValueError(f'`startFrame` can be None or numeric, but {type(startFrame)}')
-    
+
         if endFrame is None:
             endFrame=self.frameNum
         else:
@@ -113,13 +119,13 @@ class seqFileHandler:
                 endFrame = torch.clamp(endFrame,1,self.frameNum)
             except ValueError:
                 raise ValueError(f'`endFrame` can be None or numeric, but {type(endFrame)}')
-        
+
         imageList = []
         for frameNum in range(startFrame,endFrame+1):
             imageList.append(self.readFrame(frameNum).unsqueeze(dim=0))
         return torch.cat(imageList,dim=0)
-        
-    
+
+
     def gotoFrame(self,frame=0):
         self.currFrameNum=frame
         if frame==0:
@@ -148,7 +154,7 @@ class seqFileHandler:
             if saveFolder:
                 _saveFolder = saveFolder
             else:
-                _savefolder = self.directory
+                _savefolder = self._directory
 
         meanFrame,stdFrame,rangeFrame = self.calculateNoise(startFrame,numToAnalyse)
         if titleAddition:
@@ -256,13 +262,13 @@ class seqFileHandler:
 
             plt.show()
 
-    def writeHeader(self,numFrames,fr):
-        for i in range(len(self.header)):
+    def _writeHeader(self,numFrames,fr):
+        for i in range(len(self._header)):
             if i ==6:
                 print(numFrames)
                 fr.write(struct.pack('<I',numFrames))
             else:
-                fr.write(self.header[i])
+                fr.write(self._header[i])
         fr.write(bytearray(8192-1024))
 
     def writeAllFrames(self,start=1,numF='all'):
@@ -273,9 +279,9 @@ class seqFileHandler:
                 numFrames = numF
             else:
                 raise ValueError("Wrong format of frame number!")
-        print('Creating file at {0}'.format(self.modFilePath) )
-        fr = open(self.modFilePath,mode='wb')
-        self.writeHeader(numFrames,fr)
+        print('Creating file at {0}'.format(self._modFilePath) )
+        fr = open(self._modFilePath,mode='wb')
+        self._writeHeader(numFrames,fr)
         self.gotoFrame(start)
         print('Reading sequence and writing it to a new file')
         print('Progress: 0%',end='')
@@ -283,8 +289,8 @@ class seqFileHandler:
         for i in range(1,numFrames+1):
             self.readFrame()
             fr.write(bytes(self.currentFrame.view((1,-1)).byte().numpy()))
-            fr.write(struct.pack('<LHH',self.currTime,self.currTimeMS,self.currTimeUS))
-            fr.write(bytearray(self.trueImageSize-self.imageHeight*self.imageWidth-8))
+            fr.write(struct.pack('<LHH',self._currTime,self._currTimeMS,self._currTimeUS))
+            fr.write(bytearray(self._trueImageSize-self.imageHeight*self.imageWidth-8))
             print('\rProgress: %0.2f%%' % (i*100/numFrames),end='')
         print('\rProgress: 100.00%           \n')
         fr.close()
@@ -309,16 +315,16 @@ class seqFileHandler:
         if ((not averagingFound) and averaging=='ith'):
             averagingFound==True
             averagingID=0
-        curDir=self.directory
+        curDir=self._directory
         if directory:
             curDir = directory
-        curFile=self.filename+'_mod.'+self.extension
+        curFile=self._filename+'_mod.'+self._extension
         if fileName:
             curFile = fileName
         print('Creating file at {0}'.format(curDir+'/'+curFile))
         fr = open(curDir+'/'+curFile,mode='wb')
 
-        self.writeHeader(numFrames,fr)
+        self._writeHeader(numFrames,fr)
         self.gotoFrame(start)
 
         print('Preparing Moving Average Tensors...')
@@ -386,8 +392,8 @@ class seqFileHandler:
                 frameToWrite = diff
 
             fr.write(bytes(frameToWrite.byte().numpy()))
-            fr.write(struct.pack('<LHH',self.currTime,self.currTimeMS,self.currTimeUS))
-            fr.write(bytearray(self.trueImageSize-self.imageHeight*self.imageWidth-8))
+            fr.write(struct.pack('<LHH',self._currTime,self._currTimeMS,self._currTimeUS))
+            fr.write(bytearray(self._trueImageSize-self.imageHeight*self.imageWidth-8))
             print('\rProgress: %0.2f%%' % (i*100/numFrames),end='')
         print('\rProgress: 100.00%           \n')
         fr.close()

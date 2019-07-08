@@ -11,8 +11,9 @@ I would recommend you to read through the paper in order to understand what this
 
 This repository contains two Jupyter Notebooks:
 
-- `illuminationAnalysis.ipynb` - a notebook, which contains all the code that was used to generate all images related to image analysis
+- `illuminationAnalysis.ipynb` - a notebook, which contains all the code that was used to generate all images related to image analysis. This code loads multiple frames into arrays, so, in the peak it requires about 6 GB of RAM to be available, so, the minimum required RAM is 8GB (16 GB is recommended). 
 - `calcUndetectedNew.ipynb` - a notebook, which contains all code, which was used to generate all performance metrics presented in Table 1 of the paper.
+- `seqReader.py` - this is a library, which consist seqFileHandler class, which allows reading StreamPix Sequence files (v.4 and v.5 file formats are supported). It can also do other operations, including writing to StreamPix Sequence files, finding difference frames using Moving Average and calculating and plotting noise information. Because these fundtionalities are not used in the main two notebooks, this document will not specify all available methods. If you are interested in this library, please, contact me.
 
 ## Data
 
@@ -35,7 +36,7 @@ You also need to have Python 3.6+ installed and have all the dependencies. In or
 pip install -r requirements.txt
 ```
 
-This ideally needs to be done in the local Python environment. For managing environment, you can use, for example, [`pyenv` project](https://github.com/pyenv/pyenv). 
+This ideally needs to be done in the local Python environment. For managing environment, you can use, for example, [`pyenv` project](https://github.com/pyenv/pyenv). If you also want to do virtual isolated environment and isolated Jupyter kernel, it is possible. See, for example, [here](https://www.alfredo.motta.name/create-isolated-jupyter-ipython-kernels-with-pyenv-and-virtualenv/). 
 
 ## Usage
 
